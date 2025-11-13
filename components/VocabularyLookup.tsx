@@ -109,7 +109,19 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
   };
   
   const handleHistoryClick = (word: string) => {
-    handleSearch(word);
+    // Reverse the history to get chronological order (oldest to newest)
+    const chronologicalHistory = [...history].reverse();
+    const clickedWordIndex = chronologicalHistory.findIndex(item => item.word.toLowerCase() === word.toLowerCase());
+
+    if (clickedWordIndex !== -1) {
+      // Load the entire history into the results view in chronological order
+      setResults(chronologicalHistory);
+      // Set the current index to the word that was clicked
+      setCurrentIndex(clickedWordIndex);
+      // Ensure loading state and errors are cleared
+      setIsLoading(false);
+      setError(null);
+    }
   };
   
   const handlePronunciation = async (word: string) => {

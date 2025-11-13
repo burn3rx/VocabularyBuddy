@@ -51,7 +51,7 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
   }, [words]);
 
   useEffect(() => {
-    if (words.length >= 4 && (quizState === 'idle' || quizState === 'finished')) {
+    if (words.length >= 4 && quizState === 'idle') {
         startQuiz();
     }
   }, [words, startQuiz, quizState]);
