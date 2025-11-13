@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { WordData, QuizQuestion } from '../types';
 import { generateQuizQuestion } from '../services/geminiService';
@@ -10,6 +11,7 @@ interface QuizProps {
 
 type QuizState = 'idle' | 'generating' | 'active' | 'finished';
 
+// FIX: In TSX, arrow functions with generics need a trailing comma to avoid ambiguity with JSX syntax.
 const shuffleArray = <T,>(array: T[]): T[] => {
   return [...array].sort(() => Math.random() - 0.5);
 };

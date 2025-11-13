@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { WordData, QuizQuestion } from '../types';
 
@@ -53,7 +52,8 @@ const partialWordDataSchema = {
 };
 
 export async function fetchWordData(word: string, gradeLevel: string): Promise<WordData> {
-  const response = await ai.models.generateContent({
+  // Fetch word details and pronunciation concurrently
+  const wordDetailsPromise = ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: `For the word "${word}", provide a definition, an array of at least two example sentences, a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level. The definition should be from a trusted dictionary source.`,
     config: {
@@ -62,9 +62,22 @@ export async function fetchWordData(word: string, gradeLevel: string): Promise<W
     },
   });
 
-  const jsonString = response.text.trim();
+  const pronunciationPromise = getPronunciation(word).catch(err => {
+    console.error(`Failed to fetch pronunciation for "${word}":`, err);
+    return null; // Don't let a failed pronunciation block the whole process
+  });
+
+  const [wordDetailsResponse, pronunciationAudio] = await Promise.all([
+    wordDetailsPromise,
+    pronunciationPromise,
+  ]);
+
+  const jsonString = wordDetailsResponse.text.trim();
   try {
     const data = JSON.parse(jsonString);
+    if (pronunciationAudio) {
+      data.pronunciationAudio = pronunciationAudio;
+    }
     return data as WordData;
   } catch (error) {
     console.error("Failed to parse JSON response:", jsonString);
@@ -136,7 +149,7 @@ export async function generateQuizQuestion(targetWord: WordData, allWords: WordD
 export async function getPronunciation(word: string): Promise<string> {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: word }] }],
+    contents: [{ parts: [{ text: `Pronounce the word: ${word}` }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {

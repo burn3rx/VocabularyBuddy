@@ -1,10 +1,10 @@
-
 export interface WordData {
   word: string;
   definition: string;
   exampleSentences: string[];
   simplifiedExplanation: string;
   difficulty: string; // e.g., "Easy", "Medium", "Hard"
+  pronunciationAudio?: string;
 }
 
 export interface QuizQuestion {

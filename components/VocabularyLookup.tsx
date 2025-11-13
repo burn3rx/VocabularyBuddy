@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { WordData } from '../types';
 import { fetchWordData, getPronunciation, fetchPartialWordData } from '../services/geminiService';
@@ -124,13 +123,35 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
     }
   };
   
+  const currentWordData = results[currentIndex];
+  
   const handlePronunciation = async (word: string) => {
     setIsPronouncing(prev => ({ ...prev, [word]: true }));
     try {
-      const base64Audio = await getPronunciation(word);
-      const outputAudioContext = new (window.AudioContext)({ sampleRate: 24000 });
+      let base64Audio = currentWordData?.pronunciationAudio;
+
+      // If audio is not pre-fetched (e.g., for old history items), fetch it now.
+      if (!base64Audio) {
+        console.warn(`Pronunciation not found for "${word}", fetching on demand.`);
+        base64Audio = await getPronunciation(word);
+        
+        // Cache the fetched audio for future use
+        const updatedWord = { ...currentWordData, pronunciationAudio: base64Audio };
+        
+        // Update the results array which drives the current view
+        setResults(prev => {
+          const newResults = [...prev];
+          newResults[currentIndex] = updatedWord;
+          return newResults;
+        });
+        
+        // Update the history array for persistence across views
+        updateHistoryItem(updatedWord);
+      }
+
+      const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       const audioBuffer = await decodeAudioData(
-        decode(base64Audio),
+        decode(base64Audio!), // We are confident it's a string by this point
         outputAudioContext,
         24000,
         1,
@@ -159,8 +180,6 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
         return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
     }
   };
-
-  const currentWordData = results[currentIndex];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
