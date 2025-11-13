@@ -58,13 +58,18 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
   
   const handleAnswer = (answer: string) => {
     setUserAnswers(prev => ({ ...prev, [currentQuestionIndex]: answer }));
+
+    const isCorrect = answer === questions[currentQuestionIndex].correctAnswer;
+    // Longer pause for incorrect answers to allow user to read explanation
+    const timeoutDuration = isCorrect ? 1000 : 3500;
+
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
       } else {
         setQuizState('finished');
       }
-    }, 1000);
+    }, timeoutDuration);
   };
 
   const calculateScore = () => {
@@ -106,13 +111,20 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
 
   if (quizState === 'finished') {
     const score = calculateScore();
-    const percentage = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
+    const wrongAnswers = questions.length - score;
     return (
-      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
-        <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-        <p className="text-lg text-slate-600 dark:text-slate-300 mb-6">
-          You scored <span className="font-bold text-blue-500">{score}</span> out of <span className="font-bold">{questions.length}</span> ({percentage}%)
-        </p>
+      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg animate-fade-in">
+        <h2 className="text-3xl font-bold mb-4">Quiz Complete!</h2>
+        <div className="flex justify-center items-center gap-8 my-8">
+            <div className="text-center">
+                <p className="text-5xl font-bold text-green-500">{score}</p>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Correct</p>
+            </div>
+            <div className="text-center">
+                <p className="text-5xl font-bold text-red-500">{wrongAnswers}</p>
+                <p className="text-slate-600 dark:text-slate-400 mt-1">Incorrect</p>
+            </div>
+        </div>
         <button onClick={startQuiz} className="flex items-center mx-auto space-x-2 px-6 py-3 bg-blue-500 text-white font-bold rounded-full hover:bg-blue-600 transition">
           <RefreshIcon className="w-5 h-5"/>
           <span>Play Again</span>
@@ -132,6 +144,7 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
   }
 
   const userAnswer = userAnswers[currentQuestionIndex];
+  const isIncorrect = userAnswer && userAnswer !== currentQuestion.correctAnswer;
 
   return (
     <div className="p-6 sm:p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg max-w-2xl mx-auto">
@@ -161,6 +174,15 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
           );
         })}
       </div>
+
+      {isIncorrect && (
+        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-300 dark:border-yellow-700 animate-fade-in">
+            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Let's review:</h4>
+            <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                <strong className="capitalize">{currentQuestion.word}:</strong> {currentQuestion.explanation}
+            </p>
+        </div>
+      )}
     </div>
   );
 };

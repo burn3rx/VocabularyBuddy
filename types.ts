@@ -2,7 +2,7 @@
 export interface WordData {
   word: string;
   definition: string;
-  exampleSentence: string;
+  exampleSentences: string[];
   simplifiedExplanation: string;
   difficulty: string; // e.g., "Easy", "Medium", "Hard"
 }
@@ -12,4 +12,5 @@ export interface QuizQuestion {
   options: string[];
   correctAnswer: string;
   word: string;
+  explanation: string;
 }

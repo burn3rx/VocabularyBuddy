@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { WordData } from '../types';
-import { fetchWordData, getPronunciation } from '../services/geminiService';
+import { fetchWordData, getPronunciation, fetchPartialWordData } from '../services/geminiService';
 import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, LoaderIcon, SearchIcon, VolumeUpIcon } from './icons';
 
 interface VocabularyLookupProps {
@@ -43,7 +43,7 @@ async function decodeAudioData(
 
 export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, addToHistory, updateHistoryItem }) => {
   const [input, setInput] = useState('');
-  const [gradeLevel, setGradeLevel] = useState('5th Grade');
+  const [gradeLevel, setGradeLevel] = useState('5th Grader');
   const [results, setResults] = useState<WordData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,11 +56,14 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
     if (isMounted.current) {
         const wordToUpdate = results[currentIndex]?.word;
         if (wordToUpdate) {
-            const refetchExplanation = async () => {
+            const refetchExplanationAndExamples = async () => {
                 setIsUpdating(true);
                 setError(null);
                 try {
-                    const updatedData = await fetchWordData(wordToUpdate, gradeLevel);
+                    const partialData = await fetchPartialWordData(wordToUpdate, gradeLevel);
+                    const currentData = results[currentIndex];
+                    const updatedData = { ...currentData, ...partialData };
+
                     setResults(prev => prev.map((item, index) => index === currentIndex ? updatedData : item));
                     updateHistoryItem(updatedData);
                 } catch (err) {
@@ -69,7 +72,7 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
                     setIsUpdating(false);
                 }
             };
-            refetchExplanation();
+            refetchExplanationAndExamples();
         }
     } else {
         isMounted.current = true;
@@ -169,11 +172,12 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
               onChange={(e) => setGradeLevel(e.target.value)}
               className="px-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             >
-              {[...Array(8)].map((_, i) => (
-                <option key={i} value={`${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} Grade`}>
-                  {i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th'} Grade
-                </option>
-              ))}
+              {[...Array(8)].map((_, i) => {
+                  const grade = i + 1;
+                  const suffix = grade === 1 ? 'st' : grade === 2 ? 'nd' : grade === 3 ? 'rd' : 'th';
+                  const gradeText = `${grade}${suffix} Grader`;
+                  return <option key={i} value={gradeText}>{gradeText}</option>;
+              })}
             </select>
           </div>
         </form>
@@ -203,12 +207,18 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
                 <p className="text-slate-600 dark:text-slate-300">{currentWordData.definition}</p>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Example Sentence</h3>
-                <p className="text-slate-600 dark:text-slate-300 italic">"{currentWordData.exampleSentence}"</p>
+                <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Example Sentences</h3>
+                <ul className="space-y-2 list-disc list-inside">
+                  {currentWordData.exampleSentences.map((sentence, index) => (
+                    <li key={index} className="text-slate-600 dark:text-slate-300 italic">
+                      "{sentence}"
+                    </li>
+                  ))}
+                </ul>
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2 flex items-center">
-                    <span>Explained for a {gradeLevel}r</span>
+                    <span>Explained for a {gradeLevel}</span>
                     {isUpdating && <LoaderIcon className="w-4 h-4 ml-2 animate-spin" />}
                 </h3>
                 <p className={`text-slate-600 dark:text-slate-300 transition-opacity ${isUpdating ? 'opacity-50' : 'opacity-100'}`}>

@@ -19,9 +19,10 @@ const wordDataSchema = {
       type: Type.STRING,
       description: "A comprehensive and accurate definition of the word from a trusted source.",
     },
-    exampleSentence: {
-      type: Type.STRING,
-      description: "A sentence that correctly uses the word in context.",
+    exampleSentences: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "An array of at least two sentences that correctly use the word in context."
     },
     simplifiedExplanation: {
       type: Type.STRING,
@@ -32,13 +33,29 @@ const wordDataSchema = {
       description: "The difficulty of the word for the target grade level. Should be one of: 'Easy', 'Medium', or 'Hard'."
     }
   },
-  required: ["word", "definition", "exampleSentence", "simplifiedExplanation", "difficulty"],
+  required: ["word", "definition", "exampleSentences", "simplifiedExplanation", "difficulty"],
+};
+
+const partialWordDataSchema = {
+    type: Type.OBJECT,
+    properties: {
+        exampleSentences: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "An array of at least two new sentences that correctly use the word in context, suitable for the new grade level."
+        },
+        simplifiedExplanation: {
+            type: Type.STRING,
+            description: "A new explanation of the word's meaning, simplified for the target grade level."
+        }
+    },
+    required: ["exampleSentences", "simplifiedExplanation"],
 };
 
 export async function fetchWordData(word: string, gradeLevel: string): Promise<WordData> {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `For the word "${word}", provide a definition, an example sentence, a simplified explanation suitable for a ${gradeLevel} student, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level. The definition should be from a trusted dictionary source.`,
+    contents: `For the word "${word}", provide a definition, an array of at least two example sentences, a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level. The definition should be from a trusted dictionary source.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: wordDataSchema,
@@ -54,6 +71,27 @@ export async function fetchWordData(word: string, gradeLevel: string): Promise<W
     throw new Error("The API returned an unexpected format.");
   }
 }
+
+export async function fetchPartialWordData(word: string, gradeLevel: string): Promise<Pick<WordData, 'exampleSentences' | 'simplifiedExplanation'>> {
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `For the word "${word}", provide a new simplified explanation and an array of at least two new example sentences suitable for a ${gradeLevel}. Do not provide the definition, word, or difficulty.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: partialWordDataSchema,
+        },
+    });
+
+    const jsonString = response.text.trim();
+    try {
+        const data = JSON.parse(jsonString);
+        return data as Pick<WordData, 'exampleSentences' | 'simplifiedExplanation'>;
+    } catch (error) {
+        console.error("Failed to parse partial JSON response:", jsonString);
+        throw new Error("The API returned an unexpected format for the partial update.");
+    }
+}
+
 
 const quizQuestionSchema = {
     type: Type.OBJECT,
@@ -83,7 +121,11 @@ export async function generateQuizQuestion(targetWord: WordData, allWords: WordD
     const jsonString = response.text.trim();
     try {
         const data = JSON.parse(jsonString);
-        return { ...data, word: targetWord.word };
+        return { 
+            ...data, 
+            word: targetWord.word,
+            explanation: targetWord.simplifiedExplanation 
+        };
     } catch (error) {
         console.error("Failed to parse quiz JSON:", jsonString);
         throw new Error("Failed to generate a valid quiz question.");

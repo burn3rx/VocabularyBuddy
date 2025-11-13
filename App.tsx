@@ -51,6 +51,7 @@ const App: React.FC = () => {
               <button
                 onClick={() => setView('quiz')}
                 disabled={history.length < 4}
+                title={history.length < 4 ? 'Search for at least 4 words to start the quiz' : 'Take a quiz on your words'}
                 className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-full transition-colors duration-200 ${
                   view === 'quiz'
                     ? 'bg-blue-500 text-white shadow'
