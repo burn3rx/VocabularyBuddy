@@ -34,7 +34,7 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-teal-400">
-              Vocabulary Builder
+              Vocabulary Buddy
             </h1>
             <nav className="flex space-x-1 sm:space-x-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-full">
               <button
