@@ -27,14 +27,18 @@ const wordDataSchema = {
       type: Type.STRING,
       description: "An explanation of the word's meaning, simplified for the target grade level.",
     },
+    difficulty: {
+      type: Type.STRING,
+      description: "The difficulty of the word for the target grade level. Should be one of: 'Easy', 'Medium', or 'Hard'."
+    }
   },
-  required: ["word", "definition", "exampleSentence", "simplifiedExplanation"],
+  required: ["word", "definition", "exampleSentence", "simplifiedExplanation", "difficulty"],
 };
 
 export async function fetchWordData(word: string, gradeLevel: string): Promise<WordData> {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `For the word "${word}", provide a definition, an example sentence, and a simplified explanation suitable for a ${gradeLevel} student. The definition should be from a trusted dictionary source.`,
+    contents: `For the word "${word}", provide a definition, an example sentence, a simplified explanation suitable for a ${gradeLevel} student, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level. The definition should be from a trusted dictionary source.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: wordDataSchema,
@@ -69,7 +73,7 @@ export async function generateQuizQuestion(targetWord: WordData, allWords: WordD
     const wordList = allWords.map(w => w.word).join(', ');
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: `Given the following list of vocabulary words: [${wordList}]. Create a multiple-choice quiz question for the word "${targetWord.word}". Provide one correct definition and three incorrect definitions (distractors) that are plausible for a 5th grader. The correct definition should be "${targetWord.definition}". The distractors could be definitions of other words in the provided list or common misconceptions. Ensure the options are shuffled.`,
+        contents: `Create a multiple-choice quiz question for the word "${targetWord.word}". The question should ask for the definition of the word. Provide 4 answer options: one must be the correct definition, which is "${targetWord.definition}", and the other three must be plausible but incorrect definitions (distractors) suitable for a 5th grader. You can use definitions of other words from this list as distractors: [${wordList}].`,
         config: {
             responseMimeType: "application/json",
             responseSchema: quizQuestionSchema,
@@ -107,4 +111,3 @@ export async function getPronunciation(word: string): Promise<string> {
   }
   return base64Audio;
 }
-   

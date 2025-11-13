@@ -30,6 +30,7 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
     setError(null);
     setUserAnswers({});
     setCurrentQuestionIndex(0);
+    setQuestions([]);
 
     try {
       const shuffledWords = shuffleArray(words);
@@ -50,11 +51,10 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
   }, [words]);
 
   useEffect(() => {
-    if (words.length >= 4) {
+    if (words.length >= 4 && (quizState === 'idle' || quizState === 'finished')) {
         startQuiz();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words]);
+  }, [words, startQuiz, quizState]);
   
   const handleAnswer = (answer: string) => {
     setUserAnswers(prev => ({ ...prev, [currentQuestionIndex]: answer }));
@@ -84,7 +84,7 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
 
   if (quizState === 'idle' || quizState === 'generating') {
     return (
-      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg flex flex-col items-center justify-center">
+      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg flex flex-col items-center justify-center min-h-[300px]">
         {quizState === 'generating' ? (
           <>
             <LoaderIcon className="w-12 h-12 animate-spin text-blue-500 mb-4" />
@@ -106,7 +106,7 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
 
   if (quizState === 'finished') {
     const score = calculateScore();
-    const percentage = Math.round((score / questions.length) * 100);
+    const percentage = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
     return (
       <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
         <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
@@ -122,6 +122,15 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  if (!currentQuestion) {
+      return (
+        <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg flex flex-col items-center justify-center min-h-[300px]">
+            <LoaderIcon className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+            <h2 className="text-2xl font-bold">Loading question...</h2>
+        </div>
+      );
+  }
+
   const userAnswer = userAnswers[currentQuestionIndex];
 
   return (
@@ -155,4 +164,3 @@ export const Quiz: React.FC<QuizProps> = ({ words }) => {
     </div>
   );
 };
-   

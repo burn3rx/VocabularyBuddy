@@ -4,6 +4,7 @@ export interface WordData {
   definition: string;
   exampleSentence: string;
   simplifiedExplanation: string;
+  difficulty: string; // e.g., "Easy", "Medium", "Hard"
 }
 
 export interface QuizQuestion {
@@ -12,4 +13,3 @@ export interface QuizQuestion {
   correctAnswer: string;
   word: string;
 }
-   

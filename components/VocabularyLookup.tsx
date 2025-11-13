@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { WordData } from '../types';
 import { fetchWordData, getPronunciation } from '../services/geminiService';
 import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, LoaderIcon, SearchIcon, VolumeUpIcon } from './icons';
@@ -7,6 +7,7 @@ import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, LoaderIcon, SearchIcon
 interface VocabularyLookupProps {
   history: WordData[];
   addToHistory: (newWordsData: WordData[]) => void;
+  updateHistoryItem: (updatedWord: WordData) => void;
 }
 
 // Audio helper functions
@@ -40,14 +41,41 @@ async function decodeAudioData(
 }
 
 
-export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, addToHistory }) => {
+export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, addToHistory, updateHistoryItem }) => {
   const [input, setInput] = useState('');
   const [gradeLevel, setGradeLevel] = useState('5th Grade');
   const [results, setResults] = useState<WordData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPronouncing, setIsPronouncing] = useState<Record<string, boolean>>({});
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    if (isMounted.current) {
+        const wordToUpdate = results[currentIndex]?.word;
+        if (wordToUpdate) {
+            const refetchExplanation = async () => {
+                setIsUpdating(true);
+                setError(null);
+                try {
+                    const updatedData = await fetchWordData(wordToUpdate, gradeLevel);
+                    setResults(prev => prev.map((item, index) => index === currentIndex ? updatedData : item));
+                    updateHistoryItem(updatedData);
+                } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to update explanation.');
+                } finally {
+                    setIsUpdating(false);
+                }
+            };
+            refetchExplanation();
+        }
+    } else {
+        isMounted.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradeLevel]);
 
   const handleSearch = useCallback(async (wordsToSearch: string) => {
     if (!wordsToSearch.trim()) return;
@@ -104,6 +132,19 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
     }
   };
 
+  const difficultyColor = (difficulty: string) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'easy':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
+      case 'hard':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
+      default:
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
+    }
+  };
+
   const currentWordData = results[currentIndex];
 
   return (
@@ -143,10 +184,15 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
         {currentWordData && (
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg animate-fade-in">
             <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-4xl font-bold text-slate-900 dark:text-white">{currentWordData.word}</h2>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <h2 className="text-4xl font-bold text-slate-900 dark:text-white capitalize">{currentWordData.word}</h2>
+                  {currentWordData.difficulty && (
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${difficultyColor(currentWordData.difficulty)}`}>
+                          {currentWordData.difficulty}
+                      </span>
+                  )}
                 </div>
-                <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50 flex-shrink-0 ml-4">
                     {isPronouncing[currentWordData.word] ? <LoaderIcon className="w-6 h-6 animate-spin"/> : <VolumeUpIcon className="w-6 h-6"/>}
                 </button>
             </div>
@@ -161,8 +207,13 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
                 <p className="text-slate-600 dark:text-slate-300 italic">"{currentWordData.exampleSentence}"</p>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Explained for a {gradeLevel}r</h3>
-                <p className="text-slate-600 dark:text-slate-300">{currentWordData.simplifiedExplanation}</p>
+                <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2 flex items-center">
+                    <span>Explained for a {gradeLevel}r</span>
+                    {isUpdating && <LoaderIcon className="w-4 h-4 ml-2 animate-spin" />}
+                </h3>
+                <p className={`text-slate-600 dark:text-slate-300 transition-opacity ${isUpdating ? 'opacity-50' : 'opacity-100'}`}>
+                    {currentWordData.simplifiedExplanation}
+                </p>
               </div>
             </div>
             
@@ -203,4 +254,3 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
     </div>
   );
 };
-   

@@ -20,6 +20,14 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const updateHistoryItem = useCallback((updatedWord: WordData) => {
+    setHistory(prevHistory => 
+      prevHistory.map(item => 
+        item.word.toLowerCase() === updatedWord.word.toLowerCase() ? updatedWord : item
+      )
+    );
+  }, []);
+
   return (
     <div className="min-h-screen font-sans">
       <header className="bg-white dark:bg-slate-800 shadow-md">
@@ -59,7 +67,7 @@ const App: React.FC = () => {
 
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         {view === 'lookup' ? (
-          <VocabularyLookup history={history} addToHistory={addToHistory} />
+          <VocabularyLookup history={history} addToHistory={addToHistory} updateHistoryItem={updateHistoryItem} />
         ) : (
           <Quiz words={history} />
         )}
@@ -73,4 +81,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-   
