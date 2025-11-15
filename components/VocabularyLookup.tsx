@@ -50,6 +50,7 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
   const [error, setError] = useState<string | null>(null);
   const [isPronouncing, setIsPronouncing] = useState<Record<string, boolean>>({});
   const isMounted = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (isMounted.current) {
@@ -126,40 +127,53 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
   const currentWordData = results[currentIndex];
   
   const handlePronunciation = async (word: string) => {
+    if (!currentWordData) return;
+  
     setIsPronouncing(prev => ({ ...prev, [word]: true }));
     try {
-      let base64Audio = currentWordData?.pronunciationAudio;
-
-      // If audio is not pre-fetched (e.g., for old history items), fetch it now.
-      if (!base64Audio) {
-        console.warn(`Pronunciation not found for "${word}", fetching on demand.`);
-        base64Audio = await getPronunciation(word);
+      // 1. Lazily initialize and reuse a single AudioContext for performance.
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      const audioCtx = audioContextRef.current;
+      
+      let audioBuffer = currentWordData.pronunciationAudioBuffer;
+  
+      // 2. If the audio buffer isn't cached, create and cache it.
+      if (!audioBuffer) {
+        let base64Audio = currentWordData.pronunciationAudio;
+  
+        // If the base64 audio string is also missing, fetch it on-demand.
+        if (!base64Audio) {
+          console.warn(`Pronunciation not found for "${word}", fetching on demand.`);
+          base64Audio = await getPronunciation(word);
+        }
+  
+        // Decode the audio data into a reusable buffer.
+        audioBuffer = await decodeAudioData(
+          decode(base64Audio!),
+          audioCtx,
+          24000,
+          1,
+        );
         
-        // Cache the fetched audio for future use
-        const updatedWord = { ...currentWordData, pronunciationAudio: base64Audio };
+        // Cache the buffer and the (potentially newly fetched) audio data in the state.
+        const updatedWord: WordData = { 
+          ...currentWordData,
+          pronunciationAudio: base64Audio,
+          pronunciationAudioBuffer: audioBuffer,
+        };
         
-        // Update the results array which drives the current view
-        setResults(prev => {
-          const newResults = [...prev];
-          newResults[currentIndex] = updatedWord;
-          return newResults;
-        });
-        
-        // Update the history array for persistence across views
+        setResults(prev => prev.map((item, index) => index === currentIndex ? updatedWord : item));
         updateHistoryItem(updatedWord);
       }
-
-      const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const audioBuffer = await decodeAudioData(
-        decode(base64Audio!), // We are confident it's a string by this point
-        outputAudioContext,
-        24000,
-        1,
-      );
-      const source = outputAudioContext.createBufferSource();
+  
+      // 3. Play audio from the (now guaranteed to exist) buffer.
+      const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(outputAudioContext.destination);
+      source.connect(audioCtx.destination);
       source.start();
+  
     } catch (err) {
       console.error("Pronunciation error:", err);
       setError("Could not pronounce the word.");
@@ -219,23 +233,33 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
         {currentWordData && (
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg animate-fade-in">
             <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-4 flex-wrap">
+                <div>
                   <h2 className="text-4xl font-bold text-slate-900 dark:text-white capitalize">{currentWordData.word}</h2>
-                  {currentWordData.difficulty && (
-                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${difficultyColor(currentWordData.difficulty)}`}>
-                          {currentWordData.difficulty}
-                      </span>
-                  )}
+                  <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 mt-1">
+                    <span className="font-mono text-lg">/{currentWordData.ipa}/</span>
+                    <em className="font-medium">{currentWordData.partOfSpeech}</em>
+                  </div>
                 </div>
-                <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50 flex-shrink-0 ml-4">
-                    {isPronouncing[currentWordData.word] ? <LoaderIcon className="w-6 h-6 animate-spin"/> : <VolumeUpIcon className="w-6 h-6"/>}
-                </button>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-4">
+                    {currentWordData.difficulty && (
+                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${difficultyColor(currentWordData.difficulty)}`}>
+                            {currentWordData.difficulty}
+                        </span>
+                    )}
+                    <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                        {isPronouncing[currentWordData.word] ? <LoaderIcon className="w-6 h-6 animate-spin"/> : <VolumeUpIcon className="w-6 h-6"/>}
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Definition</h3>
                 <p className="text-slate-600 dark:text-slate-300">{currentWordData.definition}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Origin</h3>
+                <p className="text-slate-600 dark:text-slate-300 text-sm">{currentWordData.origin}</p>
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-blue-500 uppercase tracking-wider mb-2">Example Sentences</h3>

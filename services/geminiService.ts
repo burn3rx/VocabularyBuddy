@@ -14,9 +14,21 @@ const wordDataSchema = {
       type: Type.STRING,
       description: "The vocabulary word.",
     },
+    partOfSpeech: {
+      type: Type.STRING,
+      description: "The part of speech of the word (e.g., Noun, Verb, Adjective)."
+    },
+    ipa: {
+        type: Type.STRING,
+        description: "The International Phonetic Alphabet (IPA) representation of the word's pronunciation."
+    },
     definition: {
       type: Type.STRING,
       description: "A comprehensive and accurate definition of the word from a trusted source.",
+    },
+    origin: {
+        type: Type.STRING,
+        description: "The etymology or origin of the word."
     },
     exampleSentences: {
       type: Type.ARRAY,
@@ -32,7 +44,7 @@ const wordDataSchema = {
       description: "The difficulty of the word for the target grade level. Should be one of: 'Easy', 'Medium', or 'Hard'."
     }
   },
-  required: ["word", "definition", "exampleSentences", "simplifiedExplanation", "difficulty"],
+  required: ["word", "partOfSpeech", "ipa", "definition", "origin", "exampleSentences", "simplifiedExplanation", "difficulty"],
 };
 
 const partialWordDataSchema = {
@@ -55,7 +67,7 @@ export async function fetchWordData(word: string, gradeLevel: string): Promise<W
   // Fetch word details and pronunciation concurrently
   const wordDetailsPromise = ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `For the word "${word}", provide a definition, an array of at least two example sentences, a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level. The definition should be from a trusted dictionary source.`,
+    contents: `For the word "${word}", provide its part of speech, International Phonetic Alphabet (IPA) pronunciation, a comprehensive definition from a trusted dictionary source, its origin/etymology, an array of at least two example sentences, a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: wordDataSchema,
