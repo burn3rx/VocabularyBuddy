@@ -2,6 +2,7 @@ export interface WordData {
   word: string;
   partOfSpeech: string;
   ipa: string;
+  phoneticSyllables: string[];
   definition: string;
   exampleSentences: string[];
   simplifiedExplanation: string;

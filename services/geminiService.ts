@@ -22,6 +22,11 @@ const wordDataSchema = {
         type: Type.STRING,
         description: "The International Phonetic Alphabet (IPA) representation of the word's pronunciation."
     },
+    phoneticSyllables: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: "The word broken down into phonetic syllables (e.g., ['u', 'biq', 'ui', 'tous'] for 'ubiquitous')."
+    },
     definition: {
       type: Type.STRING,
       description: "A comprehensive and accurate definition of the word from a trusted source.",
@@ -33,7 +38,7 @@ const wordDataSchema = {
     exampleSentences: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "An array of at least two sentences that correctly use the word in context."
+      description: "An array of at least two sentences from literature, articles, or other well-regarded publications. Each string should contain the sentence and its source (e.g., 'The ubiquitous smartphones are now part of everyday life. - The New York Times').",
     },
     simplifiedExplanation: {
       type: Type.STRING,
@@ -44,7 +49,7 @@ const wordDataSchema = {
       description: "The difficulty of the word for the target grade level. Should be one of: 'Easy', 'Medium', or 'Hard'."
     }
   },
-  required: ["word", "partOfSpeech", "ipa", "definition", "origin", "exampleSentences", "simplifiedExplanation", "difficulty"],
+  required: ["word", "partOfSpeech", "ipa", "phoneticSyllables", "definition", "origin", "exampleSentences", "simplifiedExplanation", "difficulty"],
 };
 
 const partialWordDataSchema = {
@@ -53,7 +58,7 @@ const partialWordDataSchema = {
         exampleSentences: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "An array of at least two new sentences that correctly use the word in context, suitable for the new grade level."
+            description: "An array of at least two new example sentences from literature, articles, or other well-regarded publications, suitable for the new grade level. Each string should contain the sentence and its source."
         },
         simplifiedExplanation: {
             type: Type.STRING,
@@ -67,7 +72,7 @@ export async function fetchWordData(word: string, gradeLevel: string): Promise<W
   // Fetch word details and pronunciation concurrently
   const wordDetailsPromise = ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `For the word "${word}", provide its part of speech, International Phonetic Alphabet (IPA) pronunciation, a comprehensive definition from a trusted dictionary source, its origin/etymology, an array of at least two example sentences, a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level.`,
+    contents: `For the word "${word}", provide its part of speech, International Phonetic Alphabet (IPA) pronunciation, the word broken down into an array of its phonetic syllables, a comprehensive definition from a trusted dictionary source, its origin/etymology, an array of at least two example sentences from literature, articles, or other well-regarded publications that use the word in context (each string in the array should contain the sentence followed by its source attribution, like 'Sentence. - Source'), a simplified explanation suitable for a ${gradeLevel}, and a difficulty rating ('Easy', 'Medium', or 'Hard') for this word for that grade level.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: wordDataSchema,
@@ -100,7 +105,7 @@ export async function fetchWordData(word: string, gradeLevel: string): Promise<W
 export async function fetchPartialWordData(word: string, gradeLevel: string): Promise<Pick<WordData, 'exampleSentences' | 'simplifiedExplanation'>> {
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: `For the word "${word}", provide a new simplified explanation and an array of at least two new example sentences suitable for a ${gradeLevel}. Do not provide the definition, word, or difficulty.`,
+        contents: `For the word "${word}", provide a new simplified explanation and an array of at least two new example sentences from literature, articles, or other well-regarded publications suitable for a ${gradeLevel}. Each string in the array should contain the sentence followed by its source attribution, like 'Sentence. - Source'. Do not provide the definition, word, or difficulty.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: partialWordDataSchema,

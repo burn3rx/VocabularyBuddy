@@ -237,6 +237,9 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
                   <h2 className="text-4xl font-bold text-slate-900 dark:text-white capitalize">{currentWordData.word}</h2>
                   <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 mt-1">
                     <span className="font-mono text-lg">/{currentWordData.ipa}/</span>
+                    {currentWordData.phoneticSyllables && Array.isArray(currentWordData.phoneticSyllables) && (
+                        <span className="font-mono text-lg text-slate-400 dark:text-slate-500">{currentWordData.phoneticSyllables.join('·')}</span>
+                    )}
                     <em className="font-medium">{currentWordData.partOfSpeech}</em>
                   </div>
                 </div>
