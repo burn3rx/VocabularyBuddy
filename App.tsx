@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { VocabularyLookup } from './components/VocabularyLookup';
 import { Quiz } from './components/Quiz';
 import { WordData } from './types';
@@ -9,7 +9,26 @@ type View = 'lookup' | 'quiz';
 
 const App: React.FC = () => {
   const [history, setHistory] = useState<WordData[]>([]);
+  const [savedWords, setSavedWords] = useState<WordData[]>(() => {
+    try {
+      const saved = localStorage.getItem('vocabulary_buddy_saved_words');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to load saved words", e);
+      return [];
+    }
+  });
   const [view, setView] = useState<View>('lookup');
+
+  useEffect(() => {
+    try {
+      // Strip out AudioBuffer before saving as it's not serializable
+      const dataToSave = savedWords.map(({ pronunciationAudioBuffer, ...rest }) => rest);
+      localStorage.setItem('vocabulary_buddy_saved_words', JSON.stringify(dataToSave));
+    } catch (e) {
+      console.error("Failed to save words", e);
+    }
+  }, [savedWords]);
 
   const addToHistory = useCallback((newWordsData: WordData[]) => {
     setHistory(prevHistory => {
@@ -26,6 +45,23 @@ const App: React.FC = () => {
         item.word.toLowerCase() === updatedWord.word.toLowerCase() ? updatedWord : item
       )
     );
+    // Also update saved words if the word is saved
+    setSavedWords(prevSaved => 
+        prevSaved.map(item => 
+            item.word.toLowerCase() === updatedWord.word.toLowerCase() ? updatedWord : item
+        )
+    );
+  }, []);
+
+  const toggleSaveWord = useCallback((word: WordData) => {
+    setSavedWords(prev => {
+      const isSaved = prev.some(w => w.word.toLowerCase() === word.word.toLowerCase());
+      if (isSaved) {
+        return prev.filter(w => w.word.toLowerCase() !== word.word.toLowerCase());
+      } else {
+        return [...prev, word];
+      }
+    });
   }, []);
 
   return (
@@ -50,8 +86,8 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={() => setView('quiz')}
-                disabled={history.length < 4}
-                title={history.length < 4 ? 'Search for at least 4 words to start the quiz' : 'Take a quiz on your words'}
+                disabled={savedWords.length < 4}
+                title={savedWords.length < 4 ? 'Save at least 4 words to start the quiz' : 'Take a quiz on your saved words'}
                 className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-full transition-colors duration-200 ${
                   view === 'quiz'
                     ? 'bg-blue-500 text-white shadow'
@@ -68,9 +104,15 @@ const App: React.FC = () => {
 
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         {view === 'lookup' ? (
-          <VocabularyLookup history={history} addToHistory={addToHistory} updateHistoryItem={updateHistoryItem} />
+          <VocabularyLookup 
+            history={history} 
+            addToHistory={addToHistory} 
+            updateHistoryItem={updateHistoryItem}
+            savedWords={savedWords}
+            toggleSaveWord={toggleSaveWord}
+          />
         ) : (
-          <Quiz words={history} />
+          <Quiz words={savedWords} />
         )}
       </main>
 

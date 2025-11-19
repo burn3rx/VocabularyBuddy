@@ -1,12 +1,15 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { WordData } from '../types';
 import { fetchWordData, getPronunciation, fetchPartialWordData } from '../services/geminiService';
-import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, LoaderIcon, SearchIcon, VolumeUpIcon } from './icons';
+import { ArrowLeftIcon, ArrowRightIcon, ChevronRightIcon, LoaderIcon, SearchIcon, VolumeUpIcon, BookmarkIcon } from './icons';
 
 interface VocabularyLookupProps {
   history: WordData[];
   addToHistory: (newWordsData: WordData[]) => void;
   updateHistoryItem: (updatedWord: WordData) => void;
+  savedWords: WordData[];
+  toggleSaveWord: (word: WordData) => void;
 }
 
 // Audio helper functions
@@ -40,7 +43,7 @@ async function decodeAudioData(
 }
 
 
-export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, addToHistory, updateHistoryItem }) => {
+export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, addToHistory, updateHistoryItem, savedWords, toggleSaveWord }) => {
   const [input, setInput] = useState('');
   const [gradeLevel, setGradeLevel] = useState('5th Grader');
   const [results, setResults] = useState<WordData[]>([]);
@@ -123,8 +126,19 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
       setError(null);
     }
   };
+
+  const handleSavedWordClick = (word: string) => {
+    const clickedWordIndex = savedWords.findIndex(item => item.word.toLowerCase() === word.toLowerCase());
+    if (clickedWordIndex !== -1) {
+        setResults(savedWords);
+        setCurrentIndex(clickedWordIndex);
+        setIsLoading(false);
+        setError(null);
+    }
+  };
   
   const currentWordData = results[currentIndex];
+  const isSaved = currentWordData ? savedWords.some(w => w.word.toLowerCase() === currentWordData.word.toLowerCase()) : false;
   
   const handlePronunciation = async (word: string) => {
     if (!currentWordData) return;
@@ -244,14 +258,25 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-4">
-                    {currentWordData.difficulty && (
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${difficultyColor(currentWordData.difficulty)}`}>
-                            {currentWordData.difficulty}
-                        </span>
-                    )}
-                    <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50">
-                        {isPronouncing[currentWordData.word] ? <LoaderIcon className="w-6 h-6 animate-spin"/> : <VolumeUpIcon className="w-6 h-6"/>}
-                    </button>
+                    <div className="flex gap-2">
+                        {currentWordData.difficulty && (
+                            <span className={`px-3 py-1 text-sm font-semibold rounded-full ${difficultyColor(currentWordData.difficulty)}`}>
+                                {currentWordData.difficulty}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                        <button 
+                            onClick={() => toggleSaveWord(currentWordData)}
+                            className={`p-2 rounded-full transition-colors ${isSaved ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                            title={isSaved ? "Remove from saved words" : "Save word"}
+                        >
+                            <BookmarkIcon className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
+                        </button>
+                        <button onClick={() => handlePronunciation(currentWordData.word)} disabled={isPronouncing[currentWordData.word]} className="p-2 rounded-full text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                            {isPronouncing[currentWordData.word] ? <LoaderIcon className="w-6 h-6 animate-spin"/> : <VolumeUpIcon className="w-6 h-6"/>}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -302,22 +327,46 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({ history, add
         )}
       </div>
 
-      <div className="lg:col-span-1">
-        <h3 className="text-xl font-bold mb-4">Search History</h3>
-        {history.length === 0 ? (
-          <p className="text-slate-500 dark:text-slate-400">Your searched words will appear here.</p>
-        ) : (
-          <ul className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-lg max-h-96 overflow-y-auto">
-            {history.map((item, index) => (
-              <li key={`${item.word}-${index}`} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                <button onClick={() => handleHistoryClick(item.word)} className="w-full text-left flex justify-between items-center py-3 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                  <span className="font-medium capitalize">{item.word}</span>
-                  <ChevronRightIcon className="w-5 h-5 text-slate-400"/>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="lg:col-span-1 space-y-8">
+        {/* Saved Words Section */}
+        <div>
+          <h3 className="text-xl font-bold mb-4 flex items-center">
+             <BookmarkIcon className="w-5 h-5 mr-2 text-blue-500 fill-current" /> Saved Words
+          </h3>
+          {savedWords.length === 0 ? (
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Saved words will appear here. Save words to take a quiz!</p>
+          ) : (
+             <ul className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-lg max-h-64 overflow-y-auto">
+              {savedWords.map((item, index) => (
+                <li key={`saved-${item.word}-${index}`} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                  <button onClick={() => handleSavedWordClick(item.word)} className="w-full text-left flex justify-between items-center py-3 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span className="font-medium capitalize">{item.word}</span>
+                    <ChevronRightIcon className="w-5 h-5 text-slate-400"/>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Recent Search History Section */}
+        <div>
+          <h3 className="text-xl font-bold mb-4">Search History</h3>
+          {history.length === 0 ? (
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Your searched words will appear here.</p>
+          ) : (
+            <ul className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-lg max-h-64 overflow-y-auto">
+              {history.map((item, index) => (
+                <li key={`${item.word}-${index}`} className="border-b border-slate-200 dark:border-slate-700 last:border-b-0">
+                  <button onClick={() => handleHistoryClick(item.word)} className="w-full text-left flex justify-between items-center py-3 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span className="font-medium capitalize">{item.word}</span>
+                    <ChevronRightIcon className="w-5 h-5 text-slate-400"/>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
